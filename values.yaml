@@ -56,7 +56,7 @@ database:
     limits: {cpu: 500m, memory: 512Mi}
 
 backend:
-  replicas: 2
+  replicas: 1
   image:
     repository: classes-api
     tag: "1.0"
