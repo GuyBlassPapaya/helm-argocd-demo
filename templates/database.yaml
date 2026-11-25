@@ -1,0 +1,84 @@
+{{- $db := .Values.database }}
+{{- if $db.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $db.persistence.claimName }}
+  namespace: {{ .Values.namespace.name }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ $db.persistence.size }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: database
+spec:
+  replicas: {{ $db.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: database
+  template:
+    metadata:
+      labels:
+        app: database
+    spec:
+      serviceAccountName: database
+      containers:
+        - name: postgres
+          image: {{ $db.image.repository }}:{{ $db.image.tag }}
+          ports:
+            - containerPort: {{ $db.port }}
+          env:
+            - name: POSTGRES_DB
+              value: {{ $db.name }}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dbCredentials.secretName }}
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dbCredentials.secretName }}
+                  key: password
+            - name: PGDATA
+              value: {{ $db.pgdata }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            {{- toYaml $db.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml $db.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml $db.resources | nindent 12 }}
+      volumes:
+        - name: data
+          {{- if $db.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ $db.persistence.claimName }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: database
+  namespace: {{ .Values.namespace.name }}
+spec:
+  selector:
+    app: database
+  ports:
+    - port: {{ $db.port }}
+      targetPort: {{ $db.port }}

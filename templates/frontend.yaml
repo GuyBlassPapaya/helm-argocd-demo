@@ -1,0 +1,84 @@
+{{- $fe := .Values.frontend }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: {{ .Values.namespace.name }}
+data:
+  BACKEND_URL: {{ $fe.backendUrl }}
+  default.conf.template: |
+    server {
+      listen 80;
+      root /usr/share/nginx/html;
+      index index.html;
+      location = /health {
+        return 200 "ok";
+      }
+      location /api/ {
+        proxy_pass ${BACKEND_URL};
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: frontend
+spec:
+  replicas: {{ $fe.replicas }}
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      serviceAccountName: frontend
+      containers:
+        - name: nginx
+          image: {{ $fe.image.repository }}:{{ $fe.image.tag }}
+          imagePullPolicy: {{ $fe.image.pullPolicy }}
+          ports:
+            - containerPort: {{ $fe.port }}
+          env:
+            - name: BACKEND_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: frontend-config
+                  key: BACKEND_URL
+          volumeMounts:
+            - name: nginx-template
+              mountPath: /etc/nginx/templates/default.conf.template
+              subPath: default.conf.template
+          readinessProbe:
+            {{- toYaml $fe.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml $fe.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml $fe.resources | nindent 12 }}
+      volumes:
+        - name: nginx-template
+          configMap:
+            name: frontend-config
+            items:
+              - key: default.conf.template
+                path: default.conf.template
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: {{ .Values.namespace.name }}
+spec:
+  type: {{ $fe.service.type }}
+  selector:
+    app: frontend
+  ports:
+    - port: {{ $fe.port }}
+      targetPort: {{ $fe.port }}
+      {{- if eq $fe.service.type "NodePort" }}
+      nodePort: {{ $fe.service.nodePort }}
+      {{- end }}

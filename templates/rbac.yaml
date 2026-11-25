@@ -1,0 +1,33 @@
+{{- range .Values.serviceAccounts }}
+{{- if or (ne . "reviewer") $.Values.reviewer.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ . }}
+  namespace: {{ $.Values.namespace.name }}
+---
+{{- end }}
+{{- end }}
+{{- if .Values.reviewer.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: reviewer
+  namespace: {{ .Values.namespace.name }}
+rules:
+  {{- toYaml .Values.reviewer.rules | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: reviewer
+  namespace: {{ .Values.namespace.name }}
+subjects:
+  - kind: ServiceAccount
+    name: reviewer
+    namespace: {{ .Values.namespace.name }}
+roleRef:
+  kind: Role
+  name: reviewer
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

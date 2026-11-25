@@ -1,0 +1,102 @@
+namespace:
+  name: papaya-pilatis
+  create: true
+
+serviceAccounts:
+  - frontend
+  - backend
+  - database
+  - reviewer
+
+reviewer:
+  enabled: true
+  rules:
+    - apiGroups: [""]
+      resources: ["pods", "services"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["apps"]
+      resources: ["deployments"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["discovery.k8s.io"]
+      resources: ["endpointslices"]
+      verbs: ["get", "list", "watch"]
+
+# The raw setup creates this Secret out-of-band (deploy.sh, random password).
+# Leave create=false to keep that; set create=true only for throwaway environments.
+dbCredentials:
+  secretName: db-credentials
+  create: false
+  username: placeholder
+  password: placeholder
+
+database:
+  replicas: 1
+  image:
+    repository: postgres
+    tag: "16"
+  name: papaya-pilatis
+  port: 5432
+  pgdata: /var/lib/postgresql/data/pgdata
+  persistence:
+    enabled: true
+    claimName: database-data
+    size: 1Gi
+  readinessProbe:
+    exec:
+      command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  livenessProbe:
+    exec:
+      command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+    initialDelaySeconds: 20
+    periodSeconds: 10
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+
+backend:
+  replicas: 2
+  image:
+    repository: classes-api
+    tag: "1.0"
+    pullPolicy: IfNotPresent
+  port: 8080
+  config:
+    DB_HOST: database
+    DB_PORT: "5432"
+    DB_NAME: papaya-pilatis
+  readinessProbe:
+    httpGet: {path: /health, port: 8080}
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  livenessProbe:
+    httpGet: {path: /health, port: 8080}
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+
+frontend:
+  replicas: 2
+  image:
+    repository: classes-ui
+    tag: "1.0"
+    pullPolicy: IfNotPresent
+  port: 80
+  backendUrl: http://backend:8080
+  service:
+    type: NodePort
+    nodePort: 30080
+  readinessProbe:
+    httpGet: {path: /health, port: 80}
+    initialDelaySeconds: 3
+    periodSeconds: 5
+  livenessProbe:
+    httpGet: {path: /health, port: 80}
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 200m, memory: 128Mi}
