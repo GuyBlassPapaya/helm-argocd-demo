@@ -1,0 +1,30 @@
+Chart.yaml
+  h_351e63f619a010 1-6
+templates/backend.yaml
+  h_351e63f619a010 1-75
+templates/database.yaml
+  h_351e63f619a010 1-84
+templates/frontend.yaml
+  h_351e63f619a010 1-84
+templates/namespace.yaml
+  h_351e63f619a010 1-6
+templates/rbac.yaml
+  h_351e63f619a010 1-33
+templates/secret.yaml
+  h_351e63f619a010 1-11
+values-prod.yaml
+  h_351e63f619a010 1-19
+values.yaml
+  h_351e63f619a010 1-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "54e8ed6a6640fb4fc00bd029e20ee5c4b2796792",
+  "prompts": {},
+  "humans": {
+    "h_351e63f619a010": {
+      "author": "Guy Blass <guybl@papayaglobal.com>"
+    }
+  }
+}
